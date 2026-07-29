@@ -204,7 +204,41 @@ del tipo concreto.
   `IP:puerto` (requisito obligatorio del estándar, sección 1.3) funcionó
   como respaldo en todos los casos donde el broadcast no llegó.
 
-## 6. Herramientas y entorno
+## 6. Trazabilidad normativa (regla → sección del SPEC → implementación)
+
+Esta tabla permite verificar cada decisión de comportamiento del servidor
+contra el texto exacto del estándar, sin tener que inferirlo del código.
+
+| Regla implementada | Sección del SPEC | Dónde vive en el código |
+|---|---|---|
+| Mínimo de 2 jugadores para disparar y mantener el countdown (`min_players`) | 2.3.3 (tabla de constantes) y 3.1 (secuencia de la partida) | `GameConfig.MIN_PLAYERS`, evaluado en `GameEngine.checkLobbyConditions()` |
+| Countdown de exactamente 5 → 1 segundos, seguido de `start` | 2.3.2 (detalle de `countdown`) | `GameEngine.processCountdownTick()` |
+| Constantes de `welcome.config` fijas, no configurables | 2.3.3 (nota final de la tabla) | `GameConfig.kt` — valores literales, sin exposición de setters |
+| Spawn en anillo, R ∈ [350,450], fuera del círculo | 3.3 (reglas del dominio) | `GameEngine.startGame()` |
+| Movimiento normalizado a velocidad constante en diagonal | 3.3 y tabla 4.1 | `GameEngine.processPhysicsTick()` |
+| Clamp de posición al rango [15, 985] | 3.3 y tabla 4.1 | `GameEngine.processPhysicsTick()` |
+| Captura solo si la bandera está libre y distancia ≤ 40 | 3.3 y tabla 4.1 | `GameEngine.handleInteract()` |
+| Robo por distancia como único requisito (dentro o fuera del círculo) | 3.3 y tabla 4.1 | `GameEngine.handleInteract()` |
+| Transición obligatoria dentro→fuera antes de declarar victoria | 3.3 y 6.4 (anti-trampas) | `GameEngine.isInsideCircle()` + `processPhysicsTick()` |
+| `interact` del propio portador no tiene efecto | 5.3 (tabla de empates) | `GameEngine.handleInteract()` |
+| `dir.x`/`dir.y` restringidos a {-1,0,1} → `INVALID_FIELD` si no | 6.4 | `GameEngine.handleInput()` |
+| `v != 1` en `join` → `VERSION_MISMATCH` y cierre de conexión | 2.3.2 | `GameEngine.handleJoin()` |
+| Segundo `join` en la misma conexión → `INVALID_PHASE`, sin cerrar | 2.3.2 | `GameEngine.handleJoin()` |
+| `join` durante countdown/playing → `GAME_STARTED`, con cierre | 2.3.2 y 5.1.1 (tabla de errores) | `GameEngine.handleJoin()` |
+| Aborto de countdown si quedan menos de `min_players` | 5.2 (tabla de desconexiones) | `GameEngine.handleDisconnect()` |
+| Bandera regresa a (500,500) si el portador se desconecta | 5.2 y 5.2.1 | `GameEngine.handleDisconnect()` |
+| Reinicio a lobby si todos se desconectan durante la partida | 5.2 (tabla de desconexiones) | `GameEngine.handleDisconnect()` |
+| Mensaje = una línea JSON + `\n`, sin `\r` en el emisor | 2.1 (framing) | `TcpServer.readFramedMessage()` / envío explícito de `\n` |
+| Mensaje > 64 KB → `MESSAGE_TOO_LARGE` y cierre de conexión | 2.1 y 6.2 | `TcpServer.readFramedMessage()` (framing manual, no `readLine()`) |
+| Campo `type` obligatorio en todo mensaje | 2.2 | `protocol/Messages.kt` — discriminador polimórfico `classDiscriminator = "type"` |
+| Lectura tolerante de campos desconocidos | 2.2 | `CtfJson` — `ignoreUnknownKeys = true` |
+| `discover` con `v != 1` se descarta silenciosamente | 1.3 | `UdpServer.start()` |
+| Broadcast dual (`255.255.255.255` + subred) en el descubrimiento | 1.3 | `UdpClient.scanServers()` |
+| `SO_REUSEADDR` obligatorio en el socket UDP del servidor | 1.3 | `UdpServer.start()` |
+| Redondeo de posiciones a 1 decimal, half-away-from-zero | 2.3.2 | `GameEngine.roundHalfAwayFromZero()` |
+| `state` es coalescible; otros mensajes nunca se descartan | 2.3.2 y 4.2 | Cada `state` se genera y transmite completo en cada tick; el resto de mensajes se envían una sola vez por evento, sin cola descartable |
+
+## 7. Herramientas y entorno
 
 - Lenguaje: Kotlin (JVM), elegido por robustez de `java.net` para sockets
   crudos, tipado fuerte para las estructuras del protocolo, y soporte de
