@@ -1,0 +1,14 @@
+package protocol
+enum class ErrorCode {
+    INVALID_JSON,
+    UNKNOWN_TYPE,
+    MISSING_FIELD,
+    INVALID_FIELD,
+    INVALID_PHASE,
+    VERSION_MISMATCH,
+    LOBBY_FULL,
+    NAME_INVALID,
+    GAME_STARTED,
+    MESSAGE_TOO_LARGE,
+    NOT_JOINED
+}
